@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puntos por fecha · Equipos</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f4f7fc; margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; }
+        .card { background: white; border-radius: 28px; box-shadow: 0 20px 35px -8px rgba(0,20,40,0.2); padding: 2rem 1.8rem; width: fit-content; max-width: 1200px; margin: 0 auto; }
+        h1 { font-weight: 600; font-size: 1.9rem; letter-spacing: -0.02em; margin-top: 0; margin-bottom: 0.5rem; color: #0b2b4b; display: flex; align-items: center; gap: 10px; }
+        .sub { color: #4a607a; margin-bottom: 1.8rem; font-size: 1rem; border-left: 4px solid #2c7da0; padding: 0.7rem 1.2rem; background: #eef6fb; border-radius: 0 20px 20px 0; line-height: 1.4; max-width: 750px; }
+        .selector-container { display: flex; flex-wrap: wrap; gap: 0.8rem 1.8rem; align-items: center; margin-bottom: 2rem; padding: 0.8rem 0; border-top: 1px solid #d9e5f0; border-bottom: 1px solid #d9e5f0; }
+        .selector-title { font-weight: 600; color: #17486b; margin-right: 0.5rem; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.3px; }
+        .checkbox-group { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; }
+        .checkbox-group label { display: flex; align-items: center; gap: 8px; font-size: 1rem; font-weight: 500; color: #173f5f; cursor: pointer; padding: 0.2rem 0.1rem; user-select: none; }
+        .checkbox-group input[type="checkbox"] { width: 18px; height: 18px; accent-color: #1f6e9c; margin: 0; cursor: pointer; }
+        .chart-wrapper { position: relative; width: 100%; height: 420px; margin: 1rem 0 2.5rem 0; }
+        canvas { display: block; max-width: 100%; }
+        .table-section { margin-top: 1.2rem; border-radius: 24px; background: #f9fcff; padding: 1.2rem 1.5rem 1.5rem; box-shadow: inset 0 1px 5px rgba(0,40,70,0.05); border: 1px solid #d0e2f0; }
+        .table-section h2 { font-size: 1.4rem; font-weight: 600; color: #0d3b5c; margin-top: 0; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .table-section h2 span { background: #1f6e9c; color: white; font-size: 0.9rem; padding: 0.2rem 0.8rem; border-radius: 40px; font-weight: 500; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.95rem; background: white; border-radius: 18px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.02); }
+        th { background: #d9eaf5; color: #13425f; font-weight: 600; padding: 12px 10px; text-align: left; font-size: 0.9rem; letter-spacing: 0.3px; text-transform: uppercase; border-bottom: 2px solid #b6d0e2; }
+        td { padding: 11px 10px; border-bottom: 1px solid #e2eef8; color: #1d3b51; }
+        tr:last-child td { border-bottom: none; }
+        .equipo-name { font-weight: 600; color: #0e2f44; }
+        .pct-bar { display: inline-block; height: 8px; background: #2c7da0; border-radius: 20px; margin-right: 8px; vertical-align: middle; opacity: 0.75; }
+        .pct-value { font-weight: 600; color: #155a7a; }
+
+        tr.salvado { background: #d9f5e3 !important; }
+        tr.salvado .equipo-name { color: #0a5c2e; }
+        tr.descendido { background: #ffe0e0 !important; }
+        tr.descendido .equipo-name { color: #a00; }
+        .badge { display: inline-block; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 20px; margin-left: 6px; text-transform: uppercase; letter-spacing: 0.4px; vertical-align: middle; }
+        .badge-salvado { background: #0a7a3d; color: #fff; }
+        .badge-descendido { background: #b30000; color: #fff; }
+
+        .note { font-size: 0.85rem; color: #4d6c88; margin-top: 0.8rem; padding: 0.6rem 1rem; background: #e9f2fa; border-radius: 16px; display: block; line-height: 1.5; }
+        .note strong { color: #13425f; }
+
+        /* Sección de carga de resultados */
+        .carga-section { margin-top: 1.5rem; border-radius: 24px; background: #f9fcff; padding: 1.2rem 1.5rem 1.5rem; border: 1px solid #d0e2f0; }
+        .carga-section h2 { font-size: 1.4rem; font-weight: 600; color: #0d3b5c; margin-top: 0; margin-bottom: 0.5rem; }
+        .carga-ayuda { font-size: 0.85rem; color: #4d6c88; margin-bottom: 1rem; }
+        .fecha-selector { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; }
+        .btn-fecha { border: 2px solid #b6d0e2; background: white; color: #17486b; font-weight: 600; padding: 0.5rem 1.3rem; border-radius: 40px; cursor: pointer; font-size: 0.95rem; }
+        .btn-fecha.activa { background: #1f6e9c; color: white; border-color: #1f6e9c; }
+        .fila-carga { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px dashed #d9e5f0; }
+        .fila-carga:last-child { border-bottom: none; }
+        .fila-carga .nombre-eq { font-weight: 600; color: #13425f; min-width: 150px; }
+        .grupo-botones-res { display: flex; gap: 0.4rem; }
+        .btn-res { border: 2px solid transparent; font-weight: 700; width: 42px; height: 38px; border-radius: 12px; cursor: pointer; font-size: 0.95rem; transition: all 0.12s ease; }
+        .btn-res-g { background: #d9f5e3; color: #0a5c2e; }
+        .btn-res-g:hover { background: #b9ebcd; }
+        .btn-res-g.seleccionado { background: #0a7a3d; color: white; }
+        .btn-res-e { background: #fff4d6; color: #7a5a00; }
+        .btn-res-e:hover { background: #ffe9ab; }
+        .btn-res-e.seleccionado { background: #b8860b; color: white; }
+        .btn-res-p { background: #ffe0e0; color: #a00; }
+        .btn-res-p:hover { background: #ffc4c4; }
+        .btn-res-p.seleccionado { background: #b30000; color: white; }
+        .btn-borrar { border: 2px solid #d0e2f0; background: white; color: #7a93a8; font-weight: 700; width: 38px; height: 38px; border-radius: 12px; cursor: pointer; font-size: 1rem; }
+        .btn-borrar:hover { background: #eef4fa; color: #a00; border-color: #f0b8b8; }
+        .estado-carga { font-size: 0.85rem; color: #6b8ba6; margin-left: 0.5rem; min-width: 130px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>📊 Puntos fecha por fecha</h1>
+    <div class="sub">Seleccioná los equipos que querés ver. Puntos acumulados por fecha (solo puntos, sin tendencias).</div>
+
+    <div class="selector-container">
+        <span class="selector-title">Equipos:</span>
+        <div class="checkbox-group" id="equiposCheckboxes"></div>
+    </div>
+
+    <div class="chart-wrapper">
+        <canvas id="puntosChart"></canvas>
+    </div>
+
+    <div class="table-section">
+        <h2>📈 Situación de cada equipo <span>objetivo: 47 pts</span></h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Equipo</th>
+                    <th>Puntos actuales</th>
+                    <th>Mínimo</th>
+                    <th>Máximo</th>
+                    <th>Faltan para 47</th>
+                    <th>% del objetivo cubierto</th>
+                </tr>
+            </thead>
+            <tbody id="tablaBody"></tbody>
+        </table>
+        <div class="note" id="notaMinimos"></div>
+    </div>
+
+    <!-- NUEVA SECCIÓN: cargar resultados por fecha -->
+    <div class="carga-section">
+        <h2>✏️ Cargar resultados de las fechas restantes</h2>
+        <div class="carga-ayuda">Elegí la fecha y marcá cómo salió cada equipo. Se actualizan el gráfico y la tabla al instante. <strong>G</strong> = ganó (+3), <strong>E</strong> = empató (+2), <strong>P</strong> = perdió (+1).</div>
+        <div class="fecha-selector" id="fechaSelector"></div>
+        <div id="filasCarga"></div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ---------- DATOS BASE (Hoja 1 del archivo nuevo) ----------
+        const fechasBase = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27];
+
+        const equiposBase = {
+            'UBA': {
+                nombre: 'UBA',
+                puntos: [1,3,4,5,6,7,9,10,13,16,19,21,22,23,24,27,29,32,34,35,36,37,38,41,42,45,46],
+                color: '#1f77b4'
+            },
+            'Juventud Unida': {
+                nombre: 'Juventud Unida',
+                puntos: [1,3,4,5,6,8,9,10,11,12,13,14,17,20,21,22,24,25,26,27,28,29,30,31,32,35,36],
+                color: '#ff7f0e'
+            },
+            'CID Moreno': {
+                nombre: 'CID Moreno',
+                puntos: [1,2,3,4,5,6,9,10,11,12,14,15,18,19,20,21,23,26,27,28,31,32,35,38,39,40,41],
+                color: '#2ca02c'
+            },
+            'Mitre': {
+                nombre: 'Mitre',
+                puntos: [3,6,7,8,9,10,11,12,13,16,17,18,19,20,21,24,25,26,27,28,29,30,31,34,37,38,41],
+                color: '#d62728'
+            },
+            'Villa Modelo': {
+                nombre: 'Villa Modelo',
+                puntos: [1,2,3,4,7,10,12,13,14,15,16,17,20,21,22,25,26,28,29,32,33,34,35,36,37,40,43],
+                color: '#9467bd'
+            },
+            'Lanus': {
+                nombre: 'Lanus',
+                puntos: [3,4,7,8,9,10,11,12,13,14,17,20,21,22,23,24,25,27,28,31,32,33,34,36,37,38,39],
+                color: '#8c564b'
+            }
+        };
+
+        const equiposTabla = [
+            { key: 'UBA', nombre: 'UBA' },
+            { key: 'Villa Modelo', nombre: 'Villa Modelo' },
+            { key: 'CID Moreno', nombre: 'CID Moreno' },
+            { key: 'Lanus', nombre: 'Lanus' },
+            { key: 'Mitre', nombre: 'Mitre' },
+            { key: 'Juventud Unida', nombre: 'Juventud Unida' }
+        ];
+
+        const PARTIDOS_TOTALES = 30;
+        const PUNTOS_OBJETIVO = 47;
+
+        const PUNTOS_RESULTADO = { G: 3, E: 2, P: 1 };
+        const FECHAS_RESTANTES = [28, 29, 30];
+
+        // Estado de resultados cargados por el usuario: { 'UBA': { 28: 'G', 29: 'E' }, ... }
+        let resultadosCargados = {};
+
+        // Fecha actualmente seleccionada en el panel de carga
+        let fechaSeleccionada = 28;
+
+        // ---------- CONSTRUIR DATOS DERIVADOS ----------
+        // Devuelve los puntos acumulados completos (hasta 30) aplicando los resultados cargados
+        function getPuntosCompletos(equipoKey) {
+            const base = equiposBase[equipoKey].puntos.slice(); // hasta fecha 27
+            const arr = base.slice(); // copia
+            // Asegurar longitud 30
+            while (arr.length < PARTIDOS_TOTALES) arr.push(null);
+
+            let ultimoPunto = 0;
+            // Buscar el último valor no nulo de la base (fecha 27)
+            for (let i = 0; i < base.length; i++) {
+                if (base[i] !== null && base[i] !== undefined) ultimoPunto = base[i];
+            }
+
+            const cargas = resultadosCargados[equipoKey] || {};
+
+            for (const fecha of FECHAS_RESTANTES) {
+                const idx = fecha - 1;
+                const res = cargas[fecha];
+                if (res && PUNTOS_RESULTADO[res] !== undefined) {
+                    ultimoPunto += PUNTOS_RESULTADO[res];
+                    arr[idx] = ultimoPunto;
+                } else {
+                    arr[idx] = null; // no cargado
+                }
+            }
+            return arr;
+        }
+
+        // Devuelve puntos actuales (última fecha con dato) y partidos jugados
+        function getPuntosYPartidos(equipoKey) {
+            const arr = getPuntosCompletos(equipoKey);
+            let ultimoPunto = 0, partidosJugados = 0;
+            for (let i = 0; i < arr.length; i++) {
+                if (arr[i] !== null && arr[i] !== undefined) {
+                    ultimoPunto = arr[i];
+                    partidosJugados = i + 1;
+                }
+            }
+            return { puntos: ultimoPunto, partidosJugados, arr };
+        }
+
+        function calcularMinimo(puntosActuales, partidosJugados) {
+            const partidosRestantes = PARTIDOS_TOTALES - partidosJugados;
+            return puntosActuales + partidosRestantes; // 1 punto por presentarse
+        }
+
+        function calcularMaximo(puntosActuales, partidosJugados) {
+            const partidosRestantes = PARTIDOS_TOTALES - partidosJugados;
+            return puntosActuales + partidosRestantes * 3;
+        }
+
+        // ---------- GRÁFICO ----------
+        const ctx = document.getElementById('puntosChart').getContext('2d');
+        let chart = null;
+        const etiquetasFechas = Array.from({length: PARTIDOS_TOTALES}, (_, i) => i + 1);
+
+        function crearDataset(equipoKey) {
+            const base = equiposBase[equipoKey];
+            const arr = getPuntosCompletos(equipoKey);
+            return {
+                label: base.nombre,
+                data: arr,
+                borderColor: base.color,
+                backgroundColor: base.color + '20',
+                borderWidth: 3,
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                pointBackgroundColor: base.color,
+                tension: 0.1,
+                spanGaps: false,
+                fill: false,
+            };
+        }
+
+        function initChart() {
+            const datasets = Object.keys(equiposBase).map(key => crearDataset(key));
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: { labels: etiquetasFechas, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', labels: { boxWidth: 20, usePointStyle: true, pointStyle: 'circle', font: { size: 12, weight: '500' } } },
+                        tooltip: { callbacks: { label: (c) => (c.raw === null ? c.dataset.label + ': -' : c.dataset.label + ': ' + c.raw + ' pts') } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Puntos acumulados', color: '#2c3e50', font: { weight: '500' } }, grid: { color: '#e0ecf5' } },
+                        x: { title: { display: true, text: 'Fecha', color: '#2c3e50', font: { weight: '500' } }, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function refrescarGrafico() {
+            if (!chart) return;
+            const seleccionados = [];
+            document.querySelectorAll('#equiposCheckboxes input[type="checkbox"]').forEach(cb => { if (cb.checked) seleccionados.push(cb.value); });
+            chart.data.datasets = seleccionados.map(key => crearDataset(key));
+            chart.update();
+        }
+
+        function crearCheckboxes() {
+            const container = document.getElementById('equiposCheckboxes');
+            container.innerHTML = '';
+            Object.keys(equiposBase).forEach(key => {
+                const div = document.createElement('div');
+                const label = document.createElement('label');
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.value = key;
+                checkbox.checked = true;
+                checkbox.addEventListener('change', refrescarGrafico);
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(' ' + equiposBase[key].nombre));
+                div.appendChild(label);
+                container.appendChild(div);
+            });
+        }
+
+        // ---------- TABLA CON ESTADOS ----------
+        function llenarTabla() {
+            const info = equiposTabla.map(eq => {
+                const key = eq.key;
+                const { puntos, partidosJugados } = getPuntosYPartidos(key);
+                const minimo = calcularMinimo(puntos, partidosJugados);
+                const maximo = calcularMaximo(puntos, partidosJugados);
+                return { key, nombre: eq.nombre, puntos, partidosJugados, minimo, maximo };
+            });
+
+            info.forEach(equipo => {
+                let equiposPorDebajo = 0;
+                info.forEach(otro => {
+                    if (otro.key !== equipo.key && equipo.minimo > otro.maximo) equiposPorDebajo++;
+                });
+                equipo.salvado = equiposPorDebajo >= 2;
+
+                let equiposPorEncima = 0;
+                info.forEach(otro => {
+                    if (otro.key !== equipo.key && equipo.maximo < otro.minimo) equiposPorEncima++;
+                });
+                equipo.descendido = equiposPorEncima >= 4;
+            });
+
+            const tbody = document.getElementById('tablaBody');
+            tbody.innerHTML = '';
+
+            info.forEach(equipo => {
+                const faltanPara47 = Math.max(0, PUNTOS_OBJETIVO - equipo.minimo);
+                let porcentajeCubierto = (equipo.minimo / PUNTOS_OBJETIVO) * 100;
+                if (porcentajeCubierto > 100) porcentajeCubierto = 100;
+                if (porcentajeCubierto < 0) porcentajeCubierto = 0;
+
+                const row = document.createElement('tr');
+                let clases = '';
+                let badge = '';
+                if (equipo.salvado) {
+                    clases = 'salvado';
+                    badge = '<span class="badge badge-salvado">Salvado</span>';
+                } else if (equipo.descendido) {
+                    clases = 'descendido';
+                    badge = '<span class="badge badge-descendido">Descendido</span>';
+                }
+                row.className = clases;
+
+                row.innerHTML = `
+                    <td class="equipo-name">${equipo.nombre}${badge}</td>
+                    <td>${equipo.puntos}</td>
+                    <td><strong>${equipo.minimo}</strong></td>
+                    <td>${equipo.maximo}</td>
+                    <td>${faltanPara47.toFixed(0)}</td>
+                    <td>
+                        <span class="pct-bar" style="width: ${Math.min(porcentajeCubierto, 100)}px; max-width: 80px;"></span>
+                        <span class="pct-value">${porcentajeCubierto.toFixed(1)}%</span>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            document.getElementById('notaMinimos').innerHTML =
+                '🟢 <strong>Verde (salvado)</strong>: sus puntos mínimos superan los máximos de al menos 2 equipos.<br>' +
+                '🔴 <strong>Rojo (descendido)</strong>: sus puntos máximos son menores que los mínimos de al menos 4 equipos.<br>' +
+                '📌 <strong>Mínimo</strong> = puntos actuales + 1 por partido restante. <strong>Máximo</strong> = puntos actuales + 3 por partido restante.';
+        }
+
+        // ---------- PANEL DE CARGA ----------
+        function crearSelectorFechas() {
+            const cont = document.getElementById('fechaSelector');
+            cont.innerHTML = '';
+            FECHAS_RESTANTES.forEach(f => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-fecha' + (f === fechaSeleccionada ? ' activa' : '');
+                btn.textContent = 'Fecha ' + f;
+                btn.addEventListener('click', () => {
+                    fechaSeleccionada = f;
+                    crearSelectorFechas();
+                    crearFilasCarga();
+                });
+                cont.appendChild(btn);
+            });
+        }
+
+        function crearFilasCarga() {
+            const cont = document.getElementById('filasCarga');
+            cont.innerHTML = '';
+
+            Object.keys(equiposBase).forEach(key => {
+                const nombre = equiposBase[key].nombre;
+                const cargasEquipo = resultadosCargados[key] || {};
+                const actual = cargasEquipo[fechaSeleccionada] || null;
+
+                const fila = document.createElement('div');
+                fila.className = 'fila-carga';
+
+                const nombreSpan = document.createElement('span');
+                nombreSpan.className = 'nombre-eq';
+                nombreSpan.textContent = nombre;
+                fila.appendChild(nombreSpan);
+
+                const grupo = document.createElement('div');
+                grupo.className = 'grupo-botones-res';
+
+                ['G','E','P'].forEach(letra => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-res btn-res-' + letra.toLowerCase() + (actual === letra ? ' seleccionado' : '');
+                    btn.textContent = letra;
+                    btn.title = letra === 'G' ? 'Ganó (+3)' : letra === 'E' ? 'Empató (+2)' : 'Perdió (+1)';
+                    btn.addEventListener('click', () => {
+                        if (!resultadosCargados[key]) resultadosCargados[key] = {};
+                        resultadosCargados[key][fechaSeleccionada] = letra;
+                        crearFilasCarga();
+                        refrescarGrafico();
+                        llenarTabla();
+                    });
+                    grupo.appendChild(btn);
+                });
+
+                fila.appendChild(grupo);
+
+                // Estado actual
+                const estado = document.createElement('span');
+                estado.className = 'estado-carga';
+                estado.textContent = actual ? (
+                    actual === 'G' ? 'Ganó (+3)' :
+                    actual === 'E' ? 'Empató (+2)' : 'Perdió (+1)'
+                ) : 'Sin cargar';
+                fila.appendChild(estado);
+
+                // Botón borrar
+                const btnBorrar = document.createElement('button');
+                btnBorrar.className = 'btn-borrar';
+                btnBorrar.textContent = '✕';
+                btnBorrar.title = 'Borrar resultado de esta fecha';
+                btnBorrar.addEventListener('click', () => {
+                    if (resultadosCargados[key] && resultadosCargados[key][fechaSeleccionada] !== undefined) {
+                        delete resultadosCargados[key][fechaSeleccionada];
+                        if (Object.keys(resultadosCargados[key]).length === 0) delete resultadosCargados[key];
+                        crearFilasCarga();
+                        refrescarGrafico();
+                        llenarTabla();
+                    }
+                });
+                fila.appendChild(btnBorrar);
+
+                cont.appendChild(fila);
+            });
+        }
+
+        // ---------- INICIALIZAR ----------
+        window.addEventListener('load', () => {
+            crearCheckboxes();
+            initChart();
+            llenarTabla();
+            crearSelectorFechas();
+            crearFilasCarga();
+        });
+    })();
+</script>
+</body>
+</html>
