@@ -109,7 +109,7 @@
 
 <script>
     (function() {
-        // ---------- DATOS BASE (Hoja 1 del archivo nuevo) ----------
+        // ---------- DATOS BASE ----------
         const fechasBase = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29];
 
         const equiposBase = {
@@ -120,7 +120,7 @@
             },
             'Juventud Unida': {
                 nombre: 'Juventud Unida',
-                puntos: [1,3,4,5,6,8,9,10,11,12,13,14,17,20,21,22,24,25,26,27,28,29,30,31,32,35,36, 39,41],
+                puntos: [1,3,4,5,6,8,9,10,11,12,13,14,17,20,21,22,24,25,26,27,28,29,30,31,32,35,36,39,41],
                 color: '#ff7f0e'
             },
             'CID Moreno': {
@@ -160,22 +160,15 @@
         const PUNTOS_RESULTADO = { G: 3, E: 2, P: 1 };
         const FECHAS_RESTANTES = [30];
 
-        // Estado de resultados cargados por el usuario: { 'UBA': { 28: 'G', 29: 'E' }, ... }
         let resultadosCargados = {};
-
-        // Fecha actualmente seleccionada en el panel de carga
         let fechaSeleccionada = 30;
 
-        // ---------- CONSTRUIR DATOS DERIVADOS ----------
-        // Devuelve los puntos acumulados completos (hasta 30) aplicando los resultados cargados
         function getPuntosCompletos(equipoKey) {
-            const base = equiposBase[equipoKey].puntos.slice(); // hasta fecha 29
-            const arr = base.slice(); // copia
-            // Asegurar longitud 30
+            const base = equiposBase[equipoKey].puntos.slice();
+            const arr = base.slice();
             while (arr.length < PARTIDOS_TOTALES) arr.push(null);
 
             let ultimoPunto = 0;
-            // Buscar el último valor no nulo de la base (fecha 29)
             for (let i = 0; i < base.length; i++) {
                 if (base[i] !== null && base[i] !== undefined) ultimoPunto = base[i];
             }
@@ -189,13 +182,12 @@
                     ultimoPunto += PUNTOS_RESULTADO[res];
                     arr[idx] = ultimoPunto;
                 } else {
-                    arr[idx] = null; // no cargado
+                    arr[idx] = null;
                 }
             }
             return arr;
         }
 
-        // Devuelve puntos actuales (última fecha con dato) y partidos jugados
         function getPuntosYPartidos(equipoKey) {
             const arr = getPuntosCompletos(equipoKey);
             let ultimoPunto = 0, partidosJugados = 0;
@@ -210,7 +202,7 @@
 
         function calcularMinimo(puntosActuales, partidosJugados) {
             const partidosRestantes = PARTIDOS_TOTALES - partidosJugados;
-            return puntosActuales + partidosRestantes; // 1 punto por presentarse
+            return puntosActuales + partidosRestantes;
         }
 
         function calcularMaximo(puntosActuales, partidosJugados) {
@@ -288,15 +280,18 @@
             });
         }
 
-        // ---------- TABLA CON ESTADOS ----------
+        // ---------- TABLA CON ORDENAMIENTO POR PUNTOS ----------
         function llenarTabla() {
-            const info = equiposTabla.map(eq => {
+            let info = equiposTabla.map(eq => {
                 const key = eq.key;
                 const { puntos, partidosJugados } = getPuntosYPartidos(key);
                 const minimo = calcularMinimo(puntos, partidosJugados);
                 const maximo = calcularMaximo(puntos, partidosJugados);
                 return { key, nombre: eq.nombre, puntos, partidosJugados, minimo, maximo };
             });
+
+            // ⚡ ORDENAR DE MAYOR A MENOR SEGÚN LOS PUNTOS ACTUALES
+            info.sort((a, b) => b.puntos - a.puntos);
 
             info.forEach(equipo => {
                 let equiposPorDebajo = 0;
@@ -407,7 +402,6 @@
 
                 fila.appendChild(grupo);
 
-                // Estado actual
                 const estado = document.createElement('span');
                 estado.className = 'estado-carga';
                 estado.textContent = actual ? (
@@ -416,7 +410,6 @@
                 ) : 'Sin cargar';
                 fila.appendChild(estado);
 
-                // Botón borrar
                 const btnBorrar = document.createElement('button');
                 btnBorrar.className = 'btn-borrar';
                 btnBorrar.textContent = '✕';
