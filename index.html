@@ -98,7 +98,7 @@
         <div class="note" id="notaMinimos"></div>
     </div>
 
-    <!-- NUEVA SECCIÓN: cargar resultados por fecha -->
+    <!-- SECCIÓN: cargar resultados por fecha -->
     <div class="carga-section">
         <h2>✏️ Cargar resultados de las fechas restantes</h2>
         <div class="carga-ayuda">Elegí la fecha y marcá cómo salió cada equipo. Se actualizan el gráfico y la tabla al instante. <strong>G</strong> = ganó (+3), <strong>E</strong> = empató (+2), <strong>P</strong> = perdió (+1).</div>
@@ -109,7 +109,6 @@
 
 <script>
     (function() {
-        // ---------- DATOS BASE ----------
         const fechasBase = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29];
 
         const equiposBase = {
@@ -280,7 +279,7 @@
             });
         }
 
-        // ---------- TABLA CON ORDENAMIENTO POR PUNTOS ----------
+        // ---------- TABLA CON ORDENAMIENTO, DESEMPATES Y ETIQUETAS COMPLETAS ----------
         function llenarTabla() {
             let info = equiposTabla.map(eq => {
                 const key = eq.key;
@@ -290,23 +289,97 @@
                 return { key, nombre: eq.nombre, puntos, partidosJugados, minimo, maximo };
             });
 
-            // ⚡ ORDENAR DE MAYOR A MENOR SEGÚN LOS PUNTOS ACTUALES
-            info.sort((a, b) => b.puntos - a.puntos);
+            const puntosObj = {};
+            info.forEach(e => { puntosObj[e.key] = e.puntos; });
 
-            info.forEach(equipo => {
-                let equiposPorDebajo = 0;
-                info.forEach(otro => {
-                    if (otro.key !== equipo.key && equipo.minimo > otro.maximo) equiposPorDebajo++;
-                });
-                equipo.salvado = equiposPorDebajo >= 2;
+            const pLanus = puntosObj['Lanus'];
+            const pVM = puntosObj['Villa Modelo'];
+            const pMitre = puntosObj['Mitre'];
+            const esTripleEmpate = (pLanus === pVM && pVM === pMitre);
+            const esEmpateLanusMitre = (pLanus === pMitre && pLanus !== pVM);
 
-                let equiposPorEncima = 0;
-                info.forEach(otro => {
-                    if (otro.key !== equipo.key && equipo.maximo < otro.minimo) equiposPorEncima++;
-                });
-                equipo.descendido = equiposPorEncima >= 4;
+            // 1. ORDENAR CON CRITERIOS DE DESEMPATE
+            info.sort((a, b) => {
+                if (b.puntos !== a.puntos) {
+                    return b.puntos - a.puntos;
+                }
+
+                if (esTripleEmpate) {
+                    if (a.key === 'Lanus') return 1;
+                    if (b.key === 'Lanus') return -1;
+                }
+
+                if (esEmpateLanusMitre) {
+                    if (a.key === 'Mitre' && b.key === 'Lanus') return -1;
+                    if (a.key === 'Lanus' && b.key === 'Mitre') return 1;
+                }
+
+                if (!esTripleEmpate && !esEmpateLanusMitre) {
+                    if (a.key === 'Lanus' && b.key === 'Villa Modelo') return -1;
+                    if (a.key === 'Villa Modelo' && b.key === 'Lanus') return 1;
+                }
+
+                return 0;
             });
 
+            // 2. CALCULAR SALVADO Y DESCENDIDO (con reglas matemáticas y de definición directa)
+            info.forEach(equipo => {
+                let equiposConMaximoInferior = 0;
+                info.forEach(otro => {
+                    if (otro.key !== equipo.key && equipo.minimo > otro.maximo) {
+                        equiposConMaximoInferior++;
+                    }
+                });
+                equipo.salvado = equiposConMaximoInferior >= 2;
+
+                let equiposConMinimoSuperior = 0;
+                info.forEach(otro => {
+                    if (otro.key !== equipo.key && equipo.maximo < otro.minimo) {
+                        equiposConMinimoSuperior++;
+                    }
+                });
+                equipo.descendido = equiposConMinimoSuperior >= 4;
+            });
+
+            // --- REGLAS EXPLÍCITAS PARA EMPATES EN LA ÚLTIMA FECHA ---
+
+            // A) Caso: Empate mano a mano Lanús vs Villa Modelo
+            if (pLanus === pVM && !esTripleEmpate) {
+                const idxLanus = info.findIndex(e => e.key === 'Lanus');
+                const idxVM = info.findIndex(e => e.key === 'Villa Modelo');
+                if (idxLanus < idxVM && info[idxLanus].minimo === info[idxLanus].maximo) {
+                    info[idxLanus].salvado = true;
+                    info[idxVM].descendido = true;
+                }
+            }
+
+            // B) Caso: Empate mano a mano Lanús vs Mitre
+            if (esEmpateLanusMitre) {
+                const idxMitre = info.findIndex(e => e.key === 'Mitre');
+                const idxLanus = info.findIndex(e => e.key === 'Lanus');
+                if (idxMitre < idxLanus && info[idxMitre].minimo === info[idxMitre].maximo) {
+                    info[idxMitre].salvado = true;
+                    info[idxLanus].descendido = true;
+                }
+            }
+
+            // C) Caso: Triple empate (Lanús, Villa Modelo y Mitre)
+            if (esTripleEmpate) {
+                info.forEach(equipo => {
+                    if (equipo.minimo === equipo.maximo) {
+                        if (equipo.key === 'Mitre' || equipo.key === 'Villa Modelo') {
+                            equipo.salvado = true;
+                            equipo.descendido = false;
+                        }
+                        if (equipo.key === 'Lanus') {
+                            equipo.descendido = true;
+                            equipo.salvado = false;
+                        }
+                    }
+                });
+            }
+
+            // 3. PINTAR LA TABLA
             const tbody = document.getElementById('tablaBody');
             tbody.innerHTML = '';
 
@@ -319,6 +392,7 @@
                 const row = document.createElement('tr');
                 let clases = '';
                 let badge = '';
+                
                 if (equipo.salvado) {
                     clases = 'salvado';
                     badge = '<span class="badge badge-salvado">Salvado</span>';
@@ -343,8 +417,8 @@
             });
 
             document.getElementById('notaMinimos').innerHTML =
-                '🟢 <strong>Verde (salvado)</strong>: sus puntos mínimos superan los máximos de al menos 2 equipos.<br>' +
-                '🔴 <strong>Rojo (descendido)</strong>: sus puntos máximos son menores que los mínimos de al menos 4 equipos.<br>' +
+                '🟢 <strong>Verde (Salvado)</strong>: su <strong>mínimo</strong> supera el máximo de al menos 2 equipos (o se define por desempate directo).<br>' +
+                '🔴 <strong>Rojo (Descendido)</strong>: su <strong>máximo</strong> es menor que el mínimo de al menos 4 equipos (o afectado por desempates directos/triple empate).<br>' +
                 '📌 <strong>Mínimo</strong> = puntos actuales + 1 por partido restante. <strong>Máximo</strong> = puntos actuales + 3 por partido restante.';
         }
 
@@ -429,7 +503,6 @@
             });
         }
 
-        // ---------- INICIALIZAR ----------
         window.addEventListener('load', () => {
             crearCheckboxes();
             initChart();
