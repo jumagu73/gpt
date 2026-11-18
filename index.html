@@ -169,13 +169,13 @@
         // ---------- CONSTRUIR DATOS DERIVADOS ----------
         // Devuelve los puntos acumulados completos (hasta 30) aplicando los resultados cargados
         function getPuntosCompletos(equipoKey) {
-            const base = equiposBase[equipoKey].puntos.slice(); // hasta fecha 27
+            const base = equiposBase[equipoKey].puntos.slice(); // hasta fecha 29
             const arr = base.slice(); // copia
             // Asegurar longitud 30
             while (arr.length < PARTIDOS_TOTALES) arr.push(null);
 
             let ultimoPunto = 0;
-            // Buscar el último valor no nulo de la base (fecha 27)
+            // Buscar el último valor no nulo de la base (fecha 29)
             for (let i = 0; i < base.length; i++) {
                 if (base[i] !== null && base[i] !== undefined) ultimoPunto = base[i];
             }
